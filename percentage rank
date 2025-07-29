@@ -1,0 +1,10 @@
+SpendValuePercentile = 
+DIVIDE(
+    COUNTROWS(
+        FILTER(
+            ALLSELECTED('YourTable'),
+            'YourTable'[SpendValue] <= MAX('YourTable'[SpendValue])
+        )
+    ),
+    COUNTROWS(ALLSELECTED('YourTable'))
+) * 100
