@@ -1,0 +1,27 @@
+🔹1. Cumulative Value Measure (ordered by SpendValue)
+
+CumulativeValue =
+CALCULATE(
+SUM('YourTable'[Value]),
+FILTER(
+ALLSELECTED('YourTable'),
+'YourTable'[Category] = MAX('YourTable'[Category]) &&
+'YourTable'[SpendValue] <= MAX('YourTable'[SpendValue])
+)
+)
+
+🔹2. Total per Category (within filters)
+
+TotalCategoryValue =
+CALCULATE(
+SUM('YourTable'[Value]),
+FILTER(
+ALLSELECTED('YourTable'),
+'YourTable'[Category] = MAX('YourTable'[Category])
+)
+)
+
+🔹3. Cumulative Percentage Measure
+
+CumulativePct =
+DIVIDE([CumulativeValue], [TotalCategoryValue]) * 100
