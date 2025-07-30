@@ -1,0 +1,22 @@
+ParetoMargin = 
+VAR SelectedPercentile = MAX('PercentileAxis'[Value])
+VAR RankedTable =
+    ADDCOLUMNS(
+        ALLSELECTED('YourTable'),
+        "CustomerRank",
+        RANKX(
+            ALLSELECTED('YourTable'),
+            CALCULATE(SUM('YourTable'[MARGIN_$])),
+            ,
+            DESC,
+            Dense
+        )
+    )
+VAR TotalCustomers = COUNTROWS(RankedTable)
+VAR CustomersInPercentile =
+    FILTER(
+        RankedTable,
+        [CustomerRank] <= INT((SelectedPercentile / 100) * TotalCustomers)
+    )
+RETURN
+    SUMX(CustomersInPercentile, [MARGIN_$])
