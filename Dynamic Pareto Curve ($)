@@ -1,0 +1,34 @@
+ParetoMarginValue = 
+VAR CurrentPercentile = MAX('PercentileAxis'[Value])
+
+// Create virtual table with percentile rank for each row
+VAR RankedTable =
+    ADDCOLUMNS(
+        ALLSELECTED('YourTable'),
+        "Percentile",
+        ROUND(
+            DIVIDE(
+                RANKX(
+                    ALLSELECTED('YourTable'),
+                    'YourTable'[MARGIN_$],
+                    ,
+                    DESC,
+                    Dense
+                ),
+                COUNTROWS(ALLSELECTED('YourTable'))
+            ) * 100,
+            0
+        )
+    )
+
+// Sum the margin values for rows up to the current percentile
+VAR CumulativeMargin =
+    CALCULATE(
+        SUMX(
+            FILTER(RankedTable, [Percentile] <= CurrentPercentile),
+            'YourTable'[MARGIN_$]
+        )
+    )
+
+RETURN
+    CumulativeMargin
