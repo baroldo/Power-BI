@@ -1,0 +1,15 @@
+CustomerPercentileRank =
+VAR CustomerMargin = MARGIN_DECILIES[MARGIN_$]
+VAR CustomerID = MARGIN_DECILIES[CustomerID]
+VAR RankedValue =
+    RANKX(
+        ALL(MARGIN_DECILIES),
+        MARGIN_DECILIES[MARGIN_$] + 
+        (RANKX(ALL(MARGIN_DECILIES), MARGIN_DECILIES[CustomerID], , ASC, DENSE) * 1e-5),
+        ,
+        DESC,
+        SKIP
+    )
+VAR TotalCount = COUNTROWS(ALL(MARGIN_DECILIES))
+RETURN
+    ROUND(DIVIDE(RankedValue, TotalCount) * 100, 0)
