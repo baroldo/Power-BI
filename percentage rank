@@ -1,10 +1,11 @@
 SpendValuePercentile = 
 DIVIDE(
-    COUNTROWS(
-        FILTER(
-            ALLSELECTED('YourTable'),
-            'YourTable'[SpendValue] <= MAX('YourTable'[SpendValue])
-        )
+    RANKX(
+        ALLSELECTED('YourTable'),
+        'YourTable'[MARGIN_$],
+        ,
+        DESC,
+        Dense
     ),
     COUNTROWS(ALLSELECTED('YourTable'))
 ) * 100
