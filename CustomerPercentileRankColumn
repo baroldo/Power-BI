@@ -12,7 +12,10 @@ VAR TotalCustomers =
     COUNTROWS(ALLSELECTED(MARGIN_DECILIES))
 
 RETURN
-    ROUND(
-        DIVIDE(Rank, TotalCustomers) * 100,
-        0
+    IF(
+        TotalCustomers > 0,
+        ROUND(
+            DIVIDE(Rank, TotalCustomers) * 100,
+            0
+        )
     )
