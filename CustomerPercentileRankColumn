@@ -1,21 +1,39 @@
-CustomerPercentileRank = 
-VAR Rank =
-    RANKX(
-        ALLSELECTED(MARGIN_DECILIES),
-        MARGIN_DECILIES[MARGIN_$],
-        ,
-        DESC,
-        DENSE
+CustomerPercentileRank =
+VAR CustomerMargins =
+    ADDCOLUMNS(
+        SUMMARIZE(
+            ALLSELECTED(MARGIN_DECILIES),
+            MARGIN_DECILIES[CustomerID]
+        ),
+        "TotalMargin", CALCULATE(SUM(MARGIN_DECILIES[MARGIN_$]))
     )
 
-VAR TotalCustomers =
-    COUNTROWS(ALLSELECTED(MARGIN_DECILIES))
+VAR RankTable =
+    ADDCOLUMNS(
+        CustomerMargins,
+        "Rank", RANKX(
+            CustomerMargins,
+            [TotalMargin],
+            ,
+            DESC,
+            DENSE
+        )
+    )
+
+VAR TotalCustomers = COUNTROWS(CustomerMargins)
+
+VAR CurrentCustomer = SELECTEDVALUE(MARGIN_DECILIES[CustomerID])
+
+VAR CustomerRank =
+    LOOKUPVALUE(
+        [Rank],
+        MARGIN_DECILIES[CustomerID], CurrentCustomer,
+        RankTable
+    )
 
 RETURN
     IF(
-        TotalCustomers > 0,
-        ROUND(
-            DIVIDE(Rank, TotalCustomers) * 100,
-            0
-        )
+        NOT(ISBLANK(CustomerRank)) && TotalCustomers > 0,
+        ROUND(DIVIDE(CustomerRank, TotalCustomers) * 100, 0),
+        BLANK()
     )
