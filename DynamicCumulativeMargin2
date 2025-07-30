@@ -1,0 +1,39 @@
+DynamicCumulativeMargin =
+VAR CurrentPercentile = MAX('PercentileAxis'[Value])
+
+-- Add unique rank using MARGIN_$ and CustomerID
+VAR RankedTable =
+    ADDCOLUMNS(
+        ALLSELECTED(MARGIN_DECILIES),
+        "CustomerPercentile",
+        ROUND(
+            DIVIDE(
+                RANKX(
+                    ALLSELECTED(MARGIN_DECILIES),
+                    CALCULATE(
+                        SUMX(
+                            FILTER(MARGIN_DECILIES, MARGIN_DECILIES[CustomerID] = EARLIER(MARGIN_DECILIES[CustomerID])),
+                            MARGIN_DECILIES[MARGIN_$]
+                        )
+                    ) + 
+                    (RANKX(ALLSELECTED(MARGIN_DECILIES), MARGIN_DECILIES[CustomerID], , ASC, DENSE) * 1e-5), -- Tie-breaker
+                    ,
+                    DESC,
+                    SKIP -- SKIP gives unique rank per row
+                ),
+                COUNTROWS(ALLSELECTED(MARGIN_DECILIES))
+            ) * 100,
+            0
+        )
+    )
+
+VAR CumulativeMargin =
+    CALCULATE(
+        SUMX(
+            FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
+            MARGIN_DECILIES[MARGIN_$]
+        )
+    )
+
+RETURN
+    CumulativeMargin
