@@ -1,14 +1,14 @@
-CustomerPercentileRankColumn =
+CustomerPercentileRank = 
 ROUND(
     DIVIDE(
         RANKX(
-            FILTER('YourTable', NOT(ISBLANK('YourTable'[MARGIN_$]))),
-            'YourTable'[MARGIN_$],
+            ALLSELECTED(MARGIN_DECILIES),
+            CALCULATE(SUM(MARGIN_DECILIES[MARGIN_$])),
             ,
             DESC,
-            Dense
+            DENSE
         ),
-        CALCULATE(COUNTROWS('YourTable'))
+        COUNTROWS(ALLSELECTED(MARGIN_DECILIES))
     ) * 100,
     0
 )
