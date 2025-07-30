@@ -19,13 +19,12 @@ RETURN
     ROUND(DIVIDE(RankValue, TotalCount) * 100, 0)
 
 
-
 // 2. Calculate Customer Rank (Dense Ranking, descending by margin)
 //    Use this for X-axis to represent each customer ordered by margin
 CustomerRank = 
 RANKX(
     ALLSELECTED('YourTable'),
-    'YourTable'[MARGIN_$],
+    CALCULATE(SUM('YourTable'[MARGIN_$])),
     ,
     DESC,
     Dense
@@ -38,7 +37,7 @@ CumulativeMargin =
 VAR CurrentCustomerRank = 
     RANKX(
         ALLSELECTED('YourTable'),
-        MAX('YourTable'[MARGIN_$]),
+        CALCULATE(SUM('YourTable'[MARGIN_$])),
         ,
         DESC,
         Dense
@@ -50,7 +49,7 @@ VAR RankedTable =
         "CustomerRank",
         RANKX(
             ALLSELECTED('YourTable'),
-            'YourTable'[MARGIN_$],
+            CALCULATE(SUM('YourTable'[MARGIN_$])),
             ,
             DESC,
             Dense
