@@ -1,0 +1,55 @@
+// -----------------------------
+// STEP 1: Create a static axis table for the X-axis of the Pareto curve
+// This table is used to display percentile ranks from 1 to 100
+// Add this as a calculated table in Power BI
+// -----------------------------
+PercentileAxis = 
+GENERATESERIES(1, 100, 1)
+
+
+// -----------------------------
+// STEP 2: Create a dynamic Pareto measure
+// This calculates the cumulative share of total MARGIN_$
+// for each percentile rank (1 to 100), adjusted for current filters
+// Add this as a measure in your data model
+// -----------------------------
+ParetoMarginPct = 
+VAR CurrentPercentile = MAX('PercentileAxis'[Value])
+
+// Create a virtual table of all rows with their dynamic percentile rank
+VAR RankedTable =
+    ADDCOLUMNS(
+        ALLSELECTED('YourTable'),
+        "Percentile",
+        ROUND(
+            DIVIDE(
+                RANKX(
+                    ALLSELECTED('YourTable'),
+                    'YourTable'[MARGIN_$],
+                    ,
+                    DESC,
+                    Dense
+                ),
+                COUNTROWS(ALLSELECTED('YourTable'))
+            ) * 100,
+            0
+        )
+    )
+
+// Calculate cumulative margin for all rows up to the current percentile
+VAR CumulativeMargin =
+    CALCULATE(
+        SUMX(
+            FILTER(RankedTable, [Percentile] <= CurrentPercentile),
+            'YourTable'[MARGIN_$]
+        )
+    )
+
+// Calculate total margin for all visible data (after filters/slicers)
+VAR TotalMargin =
+    CALCULATE(SUM('YourTable'[MARGIN_$]), ALLSELECTED('YourTable'))
+
+// Return the share of total margin (as a decimal 0–1)
+// Format this as a percentage in the model, or multiply by 100 if needed
+RETURN
+    DIVIDE(CumulativeMargin, TotalMargin)
