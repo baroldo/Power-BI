@@ -1,0 +1,64 @@
+// --------------------------------------
+// Dynamic Pareto Curve for Customer-Level Margin
+// --------------------------------------
+
+// 1. Calculate Percentile Rank per Customer (1-100)
+//    Rounded percentile rank for each customer within current filter context
+CustomerPercentileRank = 
+ROUND(
+    DIVIDE(
+        RANKX(
+            ALLSELECTED('YourTable'),
+            'YourTable'[MARGIN_$],
+            ,
+            DESC,
+            Dense
+        ),
+        COUNTROWS(ALLSELECTED('YourTable'))
+    ) * 100,
+    0
+)
+
+
+// 2. Calculate Customer Rank (Dense Ranking, descending by margin)
+//    Use this for X-axis to represent each customer ordered by margin
+CustomerRank = 
+RANKX(
+    ALLSELECTED('YourTable'),
+    'YourTable'[MARGIN_$],
+    ,
+    DESC,
+    Dense
+)
+
+
+// 3. Calculate Cumulative Margin up to current customer rank
+//    This measure sums margin of all customers ranked above or equal to current customer
+CumulativeMargin = 
+VAR CurrentCustomerRank = 
+    RANKX(
+        ALLSELECTED('YourTable'),
+        MAX('YourTable'[MARGIN_$]),
+        ,
+        DESC,
+        Dense
+    )
+
+VAR RankedTable =
+    ADDCOLUMNS(
+        ALLSELECTED('YourTable'),
+        "CustomerRank",
+        RANKX(
+            ALLSELECTED('YourTable'),
+            'YourTable'[MARGIN_$],
+            ,
+            DESC,
+            Dense
+        )
+    )
+
+RETURN
+    SUMX(
+        FILTER(RankedTable, [CustomerRank] <= CurrentCustomerRank),
+        'YourTable'[MARGIN_$]
+    )
