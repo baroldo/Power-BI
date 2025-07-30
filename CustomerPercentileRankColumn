@@ -1,14 +1,18 @@
 CustomerPercentileRank = 
-ROUND(
-    DIVIDE(
-        RANKX(
-            ALLSELECTED(MARGIN_DECILIES),
-            CALCULATE(SUM(MARGIN_DECILIES[MARGIN_$])),
-            ,
-            DESC,
-            DENSE
-        ),
-        COUNTROWS(ALLSELECTED(MARGIN_DECILIES))
-    ) * 100,
-    0
-)
+VAR Rank =
+    RANKX(
+        ALLSELECTED(MARGIN_DECILIES),
+        MARGIN_DECILIES[MARGIN_$],
+        ,
+        DESC,
+        DENSE
+    )
+
+VAR TotalCustomers =
+    COUNTROWS(ALLSELECTED(MARGIN_DECILIES))
+
+RETURN
+    ROUND(
+        DIVIDE(Rank, TotalCustomers) * 100,
+        0
+    )
