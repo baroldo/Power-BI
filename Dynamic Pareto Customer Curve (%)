@@ -5,19 +5,19 @@
 // 1. Calculate Percentile Rank per Customer (1-100)
 //    Rounded percentile rank for each customer within current filter context
 CustomerPercentileRank = 
-ROUND(
-    DIVIDE(
-        RANKX(
-            ALLSELECTED('YourTable'),
-            'YourTable'[MARGIN_$],
-            ,
-            DESC,
-            Dense
-        ),
-        COUNTROWS(ALLSELECTED('YourTable'))
-    ) * 100,
-    0
-)
+VAR RankValue = 
+    RANKX(
+        ALLSELECTED('YourTable'),
+        CALCULATE(SUM('YourTable'[MARGIN_$])),
+        ,
+        DESC,
+        Dense
+    )
+VAR TotalCount = COUNTROWS(ALLSELECTED('YourTable'))
+
+RETURN
+    ROUND(DIVIDE(RankValue, TotalCount) * 100, 0)
+
 
 
 // 2. Calculate Customer Rank (Dense Ranking, descending by margin)
