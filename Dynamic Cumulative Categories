@@ -1,54 +1,46 @@
 DynamicCumulativeMarginPercent = 
 VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 
--- Step 1: Base data context (filtered by slicers & current legend group)
-VAR BaseTable = 
-    ALLSELECTED(MARGIN_DECILIES)
-
--- Step 2: Determine which field is being used in the legend
-VAR GroupedTable =
-    SWITCH(
-        TRUE(),
-        ISINSCOPE(MARGIN_DECILIES[Category]), 
-            FILTER(BaseTable, MARGIN_DECILIES[Category] = SELECTEDVALUE(MARGIN_DECILIES[Category])),
-        ISINSCOPE(MARGIN_DECILIES[Segment]), 
-            FILTER(BaseTable, MARGIN_DECILIES[Segment] = SELECTEDVALUE(MARGIN_DECILIES[Segment])),
-        ISINSCOPE(MARGIN_DECILIES[Region]), 
-            FILTER(BaseTable, MARGIN_DECILIES[Region] = SELECTEDVALUE(MARGIN_DECILIES[Region])),
-        BaseTable
-    )
-
--- Step 3: Add Margin column per customer
-VAR CustomerMargins =
+-- Step 1: Table in current visual & slicer context
+VAR RankedTable =
     ADDCOLUMNS(
-        GroupedTable,
+        ALLSELECTED(MARGIN_DECILIES),
         "Margin", MARGIN_DECILIES[MARGIN_$]
     )
 
--- Step 4: Rank customers by margin within group
-VAR RankedTable =
+-- Step 2: Rank within visual context (which includes the group — from the legend)
+VAR RankedWithPercentile =
     ADDCOLUMNS(
-        CustomerMargins,
+        RankedTable,
         "CustomerPercentile",
         ROUND(
             DIVIDE(
-                RANKX(CustomerMargins, [Margin], , DESC, DENSE),
-                COUNTROWS(CustomerMargins)
+                RANKX(
+                    RankedTable,
+                    [Margin],
+                    ,
+                    DESC,
+                    DENSE
+                ),
+                COUNTROWS(RankedTable)
             ) * 100,
             0
         )
     )
 
--- Step 5: Cumulative sum up to percentile
+-- Step 3: Cumulative margin up to current percentile
 VAR CumulativeMargin =
     SUMX(
-        FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
+        FILTER(
+            RankedWithPercentile,
+            [CustomerPercentile] <= CurrentPercentile
+        ),
         [Margin]
     )
 
--- Step 6: Total margin for this group
+-- Step 4: Total margin in group (visual context)
 VAR TotalMargin =
-    SUMX(RankedTable, [Margin])
+    SUMX(RankedWithPercentile, [Margin])
 
 RETURN
     DIVIDE(CumulativeMargin, TotalMargin)
