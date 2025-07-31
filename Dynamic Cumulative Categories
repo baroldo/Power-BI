@@ -1,21 +1,31 @@
 DynamicCumulativeMarginPercent = 
 VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 
--- This returns the currently selected group value (from the field parameter legend)
-VAR CurrentGroup = SELECTEDVALUE('GroupBySelector'[GroupBySelector])
-
--- Step 1: Get all data within the current group and slicer context
-VAR GroupedTable =
+-- Step 1: Base data context (filtered by slicers & current legend group)
+VAR BaseTable = 
     ALLSELECTED(MARGIN_DECILIES)
 
--- Step 2: Add customer-level margin
+-- Step 2: Determine which field is being used in the legend
+VAR GroupedTable =
+    SWITCH(
+        TRUE(),
+        ISINSCOPE(MARGIN_DECILIES[Category]), 
+            FILTER(BaseTable, MARGIN_DECILIES[Category] = SELECTEDVALUE(MARGIN_DECILIES[Category])),
+        ISINSCOPE(MARGIN_DECILIES[Segment]), 
+            FILTER(BaseTable, MARGIN_DECILIES[Segment] = SELECTEDVALUE(MARGIN_DECILIES[Segment])),
+        ISINSCOPE(MARGIN_DECILIES[Region]), 
+            FILTER(BaseTable, MARGIN_DECILIES[Region] = SELECTEDVALUE(MARGIN_DECILIES[Region])),
+        BaseTable
+    )
+
+-- Step 3: Add Margin column per customer
 VAR CustomerMargins =
     ADDCOLUMNS(
         GroupedTable,
-        "Margin", SUM(MARGIN_DECILIES[MARGIN_$])
+        "Margin", MARGIN_DECILIES[MARGIN_$]
     )
 
--- Step 3: Rank customers within this group by margin
+-- Step 4: Rank customers by margin within group
 VAR RankedTable =
     ADDCOLUMNS(
         CustomerMargins,
@@ -29,14 +39,14 @@ VAR RankedTable =
         )
     )
 
--- Step 4: Cumulative margin up to current percentile
+-- Step 5: Cumulative sum up to percentile
 VAR CumulativeMargin =
     SUMX(
         FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
         [Margin]
     )
 
--- Step 5: Total margin for this group
+-- Step 6: Total margin for this group
 VAR TotalMargin =
     SUMX(RankedTable, [Margin])
 
