@@ -1,36 +1,44 @@
 DynamicCumulativeMarginPercent = 
 VAR CurrentPercentile = MAX('PercentileAxis'[Value])
 
--- Get the current filtered table context (includes slicers, category, etc.)
+-- Get the current legend grouping from the visual (could be Category, Segment, etc.)
+VAR CurrentGroupValue = SELECTEDVALUE('GroupBySelector'[GroupBySelector])
+
+-- Table of customers WITHIN the current group (legend item), respecting slicers
+VAR CustomersInGroup =
+    ALLSELECTED('YourTable')
+
+-- Summarize customer-level margin
+VAR CustomerMargins =
+    ADDCOLUMNS(
+        CustomersInGroup,
+        "Margin", SUM('YourTable'[MARGIN_$])
+    )
+
+-- Rank customers within this group by margin
 VAR RankedTable =
     ADDCOLUMNS(
-        ALLSELECTED('YourTable'),
+        CustomerMargins,
         "CustomerPercentile",
         ROUND(
             DIVIDE(
-                RANKX(
-                    ALLSELECTED('YourTable'),
-                    CALCULATE(SUM('YourTable'[MARGIN_$])),
-                    ,
-                    DESC,
-                    Dense
-                ),
-                COUNTROWS(ALLSELECTED('YourTable'))
+                RANKX(CustomerMargins, [Margin], , DESC, DENSE),
+                COUNTROWS(CustomerMargins)
             ) * 100,
             0
         )
     )
 
--- Calculate cumulative margin up to current percentile
+-- Cumulative margin up to this percentile
 VAR CumulativeMargin =
     SUMX(
         FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
-        'YourTable'[MARGIN_$]
+        [Margin]
     )
 
--- Total margin within visual context
+-- Total margin for this group
 VAR TotalMargin =
-    CALCULATE(SUM('YourTable'[MARGIN_$]), ALLSELECTED('YourTable'))
+    SUMX(RankedTable, [Margin])
 
 RETURN
     DIVIDE(CumulativeMargin, TotalMargin)
