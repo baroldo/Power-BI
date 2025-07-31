@@ -1,46 +1,47 @@
-DynamicCumulativeMarginPercent = 
+DynamicCumulativeMarginPercent_ByCategory = 
 VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 
--- Step 1: Table in current visual & slicer context
-VAR RankedTable =
-    ADDCOLUMNS(
+-- Detect current category from the legend context
+VAR CurrentCategory = SELECTEDVALUE(MARGIN_DECILIES[Category])
+
+-- Filter only rows from the current category and selection context
+VAR CategoryTable =
+    FILTER(
         ALLSELECTED(MARGIN_DECILIES),
+        MARGIN_DECILIES[Category] = CurrentCategory
+    )
+
+-- Add Margin column if needed
+VAR CustomerMargins =
+    ADDCOLUMNS(
+        CategoryTable,
         "Margin", MARGIN_DECILIES[MARGIN_$]
     )
 
--- Step 2: Rank within visual context (which includes the group — from the legend)
-VAR RankedWithPercentile =
+-- Rank customers by margin within current category
+VAR RankedTable =
     ADDCOLUMNS(
-        RankedTable,
+        CustomerMargins,
         "CustomerPercentile",
         ROUND(
             DIVIDE(
-                RANKX(
-                    RankedTable,
-                    [Margin],
-                    ,
-                    DESC,
-                    DENSE
-                ),
-                COUNTROWS(RankedTable)
+                RANKX(CustomerMargins, [Margin], , DESC, DENSE),
+                COUNTROWS(CustomerMargins)
             ) * 100,
             0
         )
     )
 
--- Step 3: Cumulative margin up to current percentile
+-- Calculate cumulative margin up to current percentile
 VAR CumulativeMargin =
     SUMX(
-        FILTER(
-            RankedWithPercentile,
-            [CustomerPercentile] <= CurrentPercentile
-        ),
+        FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
         [Margin]
     )
 
--- Step 4: Total margin in group (visual context)
+-- Total margin for this category
 VAR TotalMargin =
-    SUMX(RankedWithPercentile, [Margin])
+    SUMX(RankedTable, [Margin])
 
 RETURN
     DIVIDE(CumulativeMargin, TotalMargin)
