@@ -1,26 +1,27 @@
 DynamicCumulativeMarginPercent = 
 VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 
--- Step 1: Get the selected field from the field parameter
-VAR SelectedGroupField =
-    SELECTEDVALUE('GroupBySelector'[GroupBySelector])
+-- Step 1: Detect which group field is selected
+VAR IsCategory = ISFILTERED(MARGIN_DECILIES[Category])
+VAR IsRegion   = ISFILTERED(MARGIN_DECILIES[Region])
+VAR IsSegment  = ISFILTERED(MARGIN_DECILIES[Segment])
 
--- Step 2: Create a virtual table with one row per customer and their group value and margin
+-- Step 2: Create virtual table based on selected group
 VAR BaseTable =
     ADDCOLUMNS(
         ALLSELECTED(MARGIN_DECILIES),
         "GroupValue", 
             SWITCH(
                 TRUE(),
-                SelectedGroupField = "MARGIN_DECILIES[Category]", MARGIN_DECILIES[Category],
-                SelectedGroupField = "MARGIN_DECILIES[Region]", MARGIN_DECILIES[Region],
-                SelectedGroupField = "MARGIN_DECILIES[Segment]", MARGIN_DECILIES[Segment],
+                IsCategory, MARGIN_DECILIES[Category],
+                IsRegion, MARGIN_DECILIES[Region],
+                IsSegment, MARGIN_DECILIES[Segment],
                 BLANK()
             ),
         "Margin", MARGIN_DECILIES[MARGIN_$]
     )
 
--- Step 3: Add percentile ranking per group
+-- Step 3: Rank customers by margin within their group
 VAR RankedTable =
     ADDCOLUMNS(
         BaseTable,
@@ -42,14 +43,14 @@ VAR RankedTable =
             )
     )
 
--- Step 4: Calculate cumulative margin for customers up to current percentile in their group
+-- Step 4: Cumulative margin up to percentile
 VAR CumulativeMargin =
     SUMX(
         FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
         [Margin]
     )
 
--- Step 5: Total margin per group (for %)
+-- Step 5: Total margin in group
 VAR TotalMargin =
     SUMX(RankedTable, [Margin])
 
