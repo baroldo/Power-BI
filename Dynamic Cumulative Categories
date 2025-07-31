@@ -1,35 +1,47 @@
-DynamicCumulativeMarginPercent = 
+DynamicCumulativeMarginPercent_ByCategory = 
 VAR CurrentPercentile = MAX('PercentileAxis'[Value])
+VAR CurrentCategory = SELECTEDVALUE('YourTable'[Category])
 
+-- Step 1: Get only rows in current category and selection
+VAR CategoryTable =
+    FILTER(
+        ALLSELECTED('YourTable'),
+        'YourTable'[Category] = CurrentCategory
+    )
+
+-- Step 2: Add percentile ranking within this category
 VAR RankedTable =
     ADDCOLUMNS(
-        ALLSELECTED('YourTable'),
+        CategoryTable,
         "CustomerPercentile",
         ROUND(
             DIVIDE(
                 RANKX(
-                    ALLSELECTED('YourTable'),
+                    CategoryTable,
                     CALCULATE(SUM('YourTable'[MARGIN_$])),
                     ,
                     DESC,
                     Dense
                 ),
-                COUNTROWS(ALLSELECTED('YourTable'))
+                COUNTROWS(CategoryTable)
             ) * 100,
             0
         )
     )
 
+-- Step 3: Cumulative margin up to current percentile in this category
 VAR CumulativeMargin =
-    CALCULATE(
-        SUMX(
-            FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
-            'YourTable'[MARGIN_$]
-        )
+    SUMX(
+        FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
+        'YourTable'[MARGIN_$]
     )
 
+-- Step 4: Total margin for this category
 VAR TotalMargin =
-    CALCULATE(SUM('YourTable'[MARGIN_$]), ALLSELECTED('YourTable'))
+    CALCULATE(
+        SUM('YourTable'[MARGIN_$]),
+        CategoryTable
+    )
 
 RETURN
     DIVIDE(CumulativeMargin, TotalMargin)
