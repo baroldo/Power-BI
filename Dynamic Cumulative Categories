@@ -1,49 +1,36 @@
-DynamicCumulativeMarginPercent_BySelectedCategory =
+DynamicCumulativeMarginPercent = 
 VAR CurrentPercentile = MAX('PercentileAxis'[Value])
 
--- Get the selected category group (e.g., a value like "Retail" if [Segment] is selected)
-VAR SelectedGroup = SELECTEDVALUE('CategorySelector'[CategorySelector])
-
--- Create a table of the current category group using TREATAS
-VAR CategoryTable =
-    CALCULATETABLE(
-        ALLSELECTED('YourTable'),
-        TREATAS(
-            VALUES('YourTable'[Customer]),  -- Key column to retain filtering
-            VALUES('YourTable'[Customer])   -- Repeat for identity
-        )
-    )
-
--- Add ranking by margin within selected group
+-- Get the current filtered table context (includes slicers, category, etc.)
 VAR RankedTable =
     ADDCOLUMNS(
-        CategoryTable,
+        ALLSELECTED('YourTable'),
         "CustomerPercentile",
         ROUND(
             DIVIDE(
                 RANKX(
-                    CategoryTable,
+                    ALLSELECTED('YourTable'),
                     CALCULATE(SUM('YourTable'[MARGIN_$])),
                     ,
                     DESC,
                     Dense
                 ),
-                COUNTROWS(CategoryTable)
+                COUNTROWS(ALLSELECTED('YourTable'))
             ) * 100,
             0
         )
     )
 
--- Calculate cumulative margin within selected group
+-- Calculate cumulative margin up to current percentile
 VAR CumulativeMargin =
     SUMX(
         FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
         'YourTable'[MARGIN_$]
     )
 
--- Calculate total margin for selected group
+-- Total margin within visual context
 VAR TotalMargin =
-    SUMX(CategoryTable, 'YourTable'[MARGIN_$])
+    CALCULATE(SUM('YourTable'[MARGIN_$]), ALLSELECTED('YourTable'))
 
 RETURN
     DIVIDE(CumulativeMargin, TotalMargin)
