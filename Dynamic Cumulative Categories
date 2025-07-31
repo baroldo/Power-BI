@@ -1,27 +1,36 @@
 DynamicCumulativeMarginPercent = 
 VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 
--- Step 1: Detect which group field is selected
-VAR IsCategory = ISFILTERED(MARGIN_DECILIES[Category])
-VAR IsRegion   = ISFILTERED(MARGIN_DECILIES[Region])
-VAR IsSegment  = ISFILTERED(MARGIN_DECILIES[Segment])
+-- Step 1: Detect which field is selected via ISFILTERED
+VAR UseCategory = ISFILTERED(MARGIN_DECILIES[Category])
+VAR UseRegion   = ISFILTERED(MARGIN_DECILIES[Region])
+VAR UseSegment  = ISFILTERED(MARGIN_DECILIES[Segment])
 
--- Step 2: Create virtual table based on selected group
+-- Step 2: Get the name of the active group column
+VAR GroupColumn =
+    SWITCH(
+        TRUE(),
+        UseCategory, "Category",
+        UseRegion, "Region",
+        UseSegment, "Segment",
+        BLANK()
+    )
+
+-- Step 3: Add virtual column with group values dynamically
 VAR BaseTable =
     ADDCOLUMNS(
         ALLSELECTED(MARGIN_DECILIES),
-        "GroupValue", 
-            SWITCH(
-                TRUE(),
-                IsCategory, MARGIN_DECILIES[Category],
-                IsRegion, MARGIN_DECILIES[Region],
-                IsSegment, MARGIN_DECILIES[Segment],
-                BLANK()
-            ),
+        "GroupValue",
+        SWITCH(
+            GroupColumn,
+            "Category", MARGIN_DECILIES[Category],
+            "Region",   MARGIN_DECILIES[Region],
+            "Segment",  MARGIN_DECILIES[Segment]
+        ),
         "Margin", MARGIN_DECILIES[MARGIN_$]
     )
 
--- Step 3: Rank customers by margin within their group
+-- Step 4: Rank customers by margin within their group
 VAR RankedTable =
     ADDCOLUMNS(
         BaseTable,
@@ -43,14 +52,13 @@ VAR RankedTable =
             )
     )
 
--- Step 4: Cumulative margin up to percentile
+-- Step 5: Cumulative margin for current group and percentile
 VAR CumulativeMargin =
     SUMX(
         FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
         [Margin]
     )
 
--- Step 5: Total margin in group
 VAR TotalMargin =
     SUMX(RankedTable, [Margin])
 
