@@ -1,60 +1,52 @@
-DynamicCumulativeMarginPercent_DynamicCategory =
+DynamicCumulativeMarginPercent =
 VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 
--- Get the current group column used in the visual (via field parameter)
--- We don’t SELECT anything directly — we rely on row context and partitioning
+-- All base data (filtered by report visuals and slicers)
+VAR BaseData = 
+    ALLSELECTED(MARGIN_DECILIES)
 
--- Step 1: Use all data respecting slicers and current legend group
-VAR RankedTable =
+-- Get values of the current selected group (e.g. Region names, or Categories)
+VAR GroupValues = 
+    VALUES('GroupBySelector'[GroupBySelector])
+
+-- Virtual table of only data in the selected group values
+VAR GroupedData =
+    CALCULATETABLE(
+        MARGIN_DECILIES,
+        TREATAS(GroupValues, 'GroupBySelector'[GroupBySelector])
+    )
+
+-- Add customer-level margin
+VAR CustomerMargins =
     ADDCOLUMNS(
-        ALLSELECTED(MARGIN_DECILIES),
+        GroupedData,
         "Margin", MARGIN_DECILIES[MARGIN_$]
     )
 
--- Step 2: Add rank and percentile by margin within the group (using EARLIER-style context)
-VAR GroupedRanked =
+-- Add percentile rank within this group
+VAR RankedTable =
     ADDCOLUMNS(
-        RankedTable,
+        CustomerMargins,
         "CustomerPercentile",
-        VAR ThisGroup = 
-            SELECTCOLUMNS(RankedTable, [GroupBySelector])  -- placeholder; will work via visual context
-        RETURN
-            ROUND(
-                DIVIDE(
-                    RANKX(
-                        FILTER(
-                            RankedTable,
-                            [GroupBySelector] = EARLIER([GroupBySelector])
-                        ),
-                        [Margin],
-                        ,
-                        DESC,
-                        DENSE
-                    ),
-                    COUNTROWS(
-                        FILTER(
-                            RankedTable,
-                            [GroupBySelector] = EARLIER([GroupBySelector])
-                        )
-                    )
-                ) * 100,
-                0
-            )
+        ROUND(
+            DIVIDE(
+                RANKX(CustomerMargins, [Margin], , DESC, DENSE),
+                COUNTROWS(CustomerMargins)
+            ) * 100,
+            0
+        )
     )
 
--- Step 3: Calculate cumulative margin up to current percentile
+-- Cumulative margin up to selected percentile
 VAR CumulativeMargin =
     SUMX(
-        FILTER(
-            GroupedRanked,
-            [CustomerPercentile] <= CurrentPercentile
-        ),
+        FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
         [Margin]
     )
 
--- Step 4: Total margin for the group
+-- Total margin for the group
 VAR TotalMargin =
-    SUMX(GroupedRanked, [Margin])
+    SUMX(RankedTable, [Margin])
 
 RETURN
     DIVIDE(CumulativeMargin, TotalMargin)
