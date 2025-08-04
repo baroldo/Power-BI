@@ -1,24 +1,26 @@
 DynamicCumulativeMarginPercent = 
-VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
+VAR SelectedGroup =
+    SELECTEDVALUE('Segment Table'[GroupBySelector])  -- E.g., "Region"
 
--- Step 1: Get selected group field from disconnected table
-VAR SelectedGroupField = SELECTEDVALUE('Segment Table'[GroupField])
+VAR CurrentPercentile =
+    MAX('PercentileAxis'[Percentage of Merchants (%)])
 
--- Step 2: Build virtual table with dynamic grouping
+-- Step 1: Create base table with dynamic group values
 VAR BaseTable =
     ADDCOLUMNS(
         ALLSELECTED(MARGIN_DECILIES),
         "GroupValue",
         SWITCH(
-            SelectedGroupField,
-            "Category", MARGIN_DECILIES[Category],
-            "Region",   MARGIN_DECILIES[Region],
-            "Segment",  MARGIN_DECILIES[Segment]
+            SelectedGroup,
+            "Region",    MARGIN_DECILIES[Region],
+            "Category",  MARGIN_DECILIES[Category],
+            "Segment",   MARGIN_DECILIES[Segment],
+            "Default"
         ),
         "Margin", MARGIN_DECILIES[CustomerPercentileRankIncremental]
     )
 
--- Step 3: Rank within group
+-- Step 2: Rank within each group
 VAR RankedTable =
     ADDCOLUMNS(
         BaseTable,
@@ -40,15 +42,24 @@ VAR RankedTable =
             )
     )
 
--- Step 4: Calculate cumulative percentage
+-- Step 3: Get current group in visual context (e.g. VIC, NSW)
+VAR VisualGroup = SELECTEDVALUE(MARGIN_DECILIES[Region]) -- this field will update depending on selected legend field
+
+-- Step 4: Compute cumulative for each line in visual
 VAR CumulativeMargin =
     SUMX(
-        FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
+        FILTER(RankedTable,
+            [GroupValue] = VisualGroup &&
+            [CustomerPercentile] <= CurrentPercentile
+        ),
         [Margin]
     )
 
 VAR TotalMargin =
-    SUMX(RankedTable, [Margin])
+    SUMX(
+        FILTER(RankedTable, [GroupValue] = VisualGroup),
+        [Margin]
+    )
 
 RETURN
     DIVIDE(CumulativeMargin, TotalMargin)
