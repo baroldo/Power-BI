@@ -1,23 +1,22 @@
 DynamicCumulativeMargin =
-VAR CurrentPercentile = MAX('PercentileAxis'[Value])
+VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 
 -- Dynamically detect the active legend field
 VAR GroupedTable =
     ADDCOLUMNS(
-        ALLSELECTED('MARGIN_DECILES'),
+        ALLSELECTED('MARGIN_DECILIES'),
         "GroupValue",
             SWITCH(
                 TRUE(),
-                ISINSCOPE('MARGIN_DECILES'[Region]),        'MARGIN_DECILES'[Region],
-                ISINSCOPE('MARGIN_DECILES'[Product]),       'MARGIN_DECILES'[Product],
-                ISINSCOPE('MARGIN_DECILES'[Salesperson]),   'MARGIN_DECILES'[Salesperson],
-                ISINSCOPE('MARGIN_DECILES'[CustomerGroup]), 'MARGIN_DECILES'[CustomerGroup],
+                ISINSCOPE('MARGIN_DECILIES'[INDUSTRY]),     'MARGIN_DECILIES'[INDUSTRY],
+                ISINSCOPE('MARGIN_DECILIES'[PROD_CAT]),     'MARGIN_DECILIES'[PROD_CAT],
+                ISINSCOPE('MARGIN_DECILIES'[SECTOR_DESC]),  'MARGIN_DECILIES'[SECTOR_DESC],
                 "All"
             ),
-        "CustomerMargin", CALCULATE(SUM('MARGIN_DECILES'[MARGIN_$]))
+        "CustomerMargin", CALCULATE(SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental]))
     )
 
--- Rank customers within their group (Region, Product, etc.)
+-- Rank customers within their group
 VAR RankedTable =
     ADDCOLUMNS(
         GroupedTable,
@@ -37,7 +36,7 @@ VAR RankedTable =
             )
     )
 
--- Cumulative margin for customers up to current percentile in their group
+-- Cumulative total for customers up to current percentile in their group
 VAR CumulativeMargin =
     SUMX(
         FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
