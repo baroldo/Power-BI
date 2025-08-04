@@ -1,8 +1,11 @@
-Selected Group Test = 
+Selected Group Test =
+VAR SelectedGroup = SELECTEDVALUE('LegendSelector'[Value])
+
+RETURN
 SWITCH(
-    SELECTEDVALUE('LegendSelector'[Value]),
-    "INDUSTRY", MAX('MARGIN_DECILIES'[INDUSTRY]),
-    "PROD_CAT", MAX('MARGIN_DECILIES'[PROD_CAT]),
-    "SECTOR_DESC", MAX('MARGIN_DECILIES'[SECTOR_DESC]),
+    SelectedGroup,
+    "INDUSTRY", SELECTEDVALUE('MARGIN_DECILIES'[INDUSTRY], "No Industry"),
+    "PROD_CAT", SELECTEDVALUE('MARGIN_DECILIES'[PROD_CAT], "No Prod_Cat"),
+    "SECTOR_DESC", SELECTEDVALUE('MARGIN_DECILIES'[SECTOR_DESC], "No Sector"),
     "All"
 )
