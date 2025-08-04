@@ -10,23 +10,21 @@ VAR ThisGroup =
 VAR GroupedTable =
     ADDCOLUMNS(
         ALLSELECTED('MARGIN_DECILIES'),
-        "GroupValue", ThisGroup,
+        "TempGroup", ThisGroup,
         "CustomerMargin", CALCULATE(SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental]))
     )
-
-VAR ThisCustomerMargin = CALCULATE(SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental]))
 
 RETURN
     ROUND(
         DIVIDE(
             RANKX(
-                FILTER(GroupedTable, [GroupValue] = ThisGroup),
+                FILTER(GroupedTable, [TempGroup] = ThisGroup),
                 [CustomerMargin],
                 ,
                 DESC,
                 Dense
             ),
-            COUNTROWS(FILTER(GroupedTable, [GroupValue] = ThisGroup))
+            COUNTROWS(FILTER(GroupedTable, [TempGroup] = ThisGroup))
         ) * 100,
         0
     )
