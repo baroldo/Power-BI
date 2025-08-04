@@ -1,52 +1,46 @@
-DynamicCumulativeMargin = 
+DynamicCumulativeMargin =
 VAR CurrentPercentile = MAX('PercentileAxis'[Value])
 
--- The legend grouping field (Region, Product, etc.)
-VAR LegendField = SELECTEDVALUE('Legend Field Parameter'[Legend Field Parameter])
-
--- Create a table with customer, their margin, and their group value (based on selected legend field)
-VAR BaseTable =
+-- Dynamically detect the active legend field
+VAR GroupedTable =
     ADDCOLUMNS(
         ALLSELECTED('MARGIN_DECILES'),
-        "GroupValue", 
+        "GroupValue",
             SWITCH(
                 TRUE(),
-                LegendField = "Region", 'MARGIN_DECILES'[Region],
-                LegendField = "Product", 'MARGIN_DECILES'[Product],
-                LegendField = "Salesperson", 'MARGIN_DECILES'[Salesperson],
-                LegendField = "CustomerGroup", 'MARGIN_DECILES'[CustomerGroup],
+                ISINSCOPE('MARGIN_DECILES'[Region]),        'MARGIN_DECILES'[Region],
+                ISINSCOPE('MARGIN_DECILES'[Product]),       'MARGIN_DECILES'[Product],
+                ISINSCOPE('MARGIN_DECILES'[Salesperson]),   'MARGIN_DECILES'[Salesperson],
+                ISINSCOPE('MARGIN_DECILES'[CustomerGroup]), 'MARGIN_DECILES'[CustomerGroup],
                 "All"
             ),
         "CustomerMargin", CALCULATE(SUM('MARGIN_DECILES'[MARGIN_$]))
     )
 
--- Rank each customer within their own group by margin
+-- Rank customers within their group (Region, Product, etc.)
 VAR RankedTable =
     ADDCOLUMNS(
-        BaseTable,
+        GroupedTable,
         "CustomerPercentile",
             ROUND(
                 DIVIDE(
                     RANKX(
-                        FILTER(BaseTable, [GroupValue] = EARLIER([GroupValue])),
+                        FILTER(GroupedTable, [GroupValue] = EARLIER([GroupValue])),
                         [CustomerMargin],
                         ,
                         DESC,
                         Dense
                     ),
-                    COUNTROWS(FILTER(BaseTable, [GroupValue] = EARLIER([GroupValue])))
+                    COUNTROWS(FILTER(GroupedTable, [GroupValue] = EARLIER([GroupValue])))
                 ) * 100,
                 0
             )
     )
 
--- Cumulative margin for customers within group and percentile threshold
+-- Cumulative margin for customers up to current percentile in their group
 VAR CumulativeMargin =
     SUMX(
-        FILTER(
-            RankedTable,
-            [CustomerPercentile] <= CurrentPercentile
-        ),
+        FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
         [CustomerMargin]
     )
 
