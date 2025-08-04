@@ -1,52 +1,64 @@
-DynamicCumulativeMargin =
-VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
+DynamicCumulativeMargin = 
+VAR SelectedGroup = SELECTEDVALUE('GroupBySelector'[GroupBySelector])
 
--- Add GroupValue and CustomerMargin per customer
+-- Return blank if no selection is made
+VAR _Check = IF(ISBLANK(SelectedGroup), BLANK())
+
+-- Return the corresponding column for the selected group
 VAR GroupedTable =
     ADDCOLUMNS(
         ALLSELECTED('MARGIN_DECILIES'),
-        "GroupValue",
+        "GroupValue", 
             SWITCH(
-                TRUE(),
-                ISINSCOPE('MARGIN_DECILIES'[INDUSTRY]),     'MARGIN_DECILIES'[INDUSTRY],
-                ISINSCOPE('MARGIN_DECILIES'[PROD_CAT]),     'MARGIN_DECILIES'[PROD_CAT],
-                ISINSCOPE('MARGIN_DECILIES'[SECTOR_DESC]),  'MARGIN_DECILIES'[SECTOR_DESC],
-                "All"
+                SelectedGroup,
+                "INDUSTRY", 'MARGIN_DECILIES'[INDUSTRY],
+                "PROD_CAT", 'MARGIN_DECILIES'[PROD_CAT],
+                "SECTOR_DESC", 'MARGIN_DECILIES'[SECTOR_DESC],
+                "All", "All"
             ),
-        "CustomerMargin", CALCULATE(SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental]))
+        "CustomerMargin", 
+            CALCULATE(SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental]))
     )
 
--- Rank customers *within their group*
+-- Current percentile from axis (e.g., 10%, 20%, etc.)
+VAR CurrentPercentile = MAX('MARGIN_DECILIES'[Percentage of Merchants (%)])
+
+-- Apply ranking within each group
 VAR RankedTable =
     ADDCOLUMNS(
         GroupedTable,
         "CustomerPercentile",
-            VAR ThisGroup = [GroupValue]
-            VAR GroupFiltered =
-                FILTER(GroupedTable, [GroupValue] = ThisGroup)
-            VAR ThisCustomer = [CustomerMargin]
-            RETURN
-                ROUND(
-                    DIVIDE(
-                        RANKX(
-                            GroupFiltered,
-                            [CustomerMargin],
-                            ,
-                            DESC,
-                            Dense
+            ROUND(
+                DIVIDE(
+                    RANKX(
+                        FILTER(
+                            GroupedTable,
+                            [GroupValue] = EARLIER([GroupValue])
                         ),
-                        COUNTROWS(GroupFiltered)
-                    ) * 100,
-                    0
-                )
+                        [CustomerMargin],
+                        ,
+                        DESC,
+                        DENSE
+                    ),
+                    COUNTROWS(
+                        FILTER(
+                            GroupedTable,
+                            [GroupValue] = EARLIER([GroupValue])
+                        )
+                    )
+                ) * 100,
+                0
+            )
     )
 
--- Calculate cumulative value up to selected percentile
-VAR CumulativeMargin =
-    SUMX(
-        FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
-        [CustomerMargin]
+-- Sum margin for customers <= current percentile within group
+VAR Result =
+    CALCULATE(
+        SUMX(
+            FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
+            [CustomerMargin]
+        )
     )
 
 RETURN
-    CumulativeMargin
+    IF(ISBLANK(_Check), BLANK(), Result)
