@@ -1,35 +1,54 @@
 DynamicCumulativeMarginPercent = 
-VAR CurrentPercentile = MAX('PercentileAxis'[Value])
+VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 
-VAR RankedTable =
+-- Step 1: Get selected group field from disconnected table
+VAR SelectedGroupField = SELECTEDVALUE('Segment Table'[GroupField])
+
+-- Step 2: Build virtual table with dynamic grouping
+VAR BaseTable =
     ADDCOLUMNS(
-        ALLSELECTED('YourTable'),
-        "CustomerPercentile",
-        ROUND(
-            DIVIDE(
-                RANKX(
-                    ALLSELECTED('YourTable'),
-                    CALCULATE(SUM('YourTable'[MARGIN_$])),
-                    ,
-                    DESC,
-                    Dense
-                ),
-                COUNTROWS(ALLSELECTED('YourTable'))
-            ) * 100,
-            0
-        )
+        ALLSELECTED(MARGIN_DECILIES),
+        "GroupValue",
+        SWITCH(
+            SelectedGroupField,
+            "Category", MARGIN_DECILIES[Category],
+            "Region",   MARGIN_DECILIES[Region],
+            "Segment",  MARGIN_DECILIES[Segment]
+        ),
+        "Margin", MARGIN_DECILIES[CustomerPercentileRankIncremental]
     )
 
+-- Step 3: Rank within group
+VAR RankedTable =
+    ADDCOLUMNS(
+        BaseTable,
+        "CustomerPercentile",
+        VAR ThisGroup = [GroupValue]
+        RETURN
+            ROUND(
+                DIVIDE(
+                    RANKX(
+                        FILTER(BaseTable, [GroupValue] = ThisGroup),
+                        [Margin],
+                        ,
+                        DESC,
+                        DENSE
+                    ),
+                    COUNTROWS(FILTER(BaseTable, [GroupValue] = ThisGroup))
+                ) * 100,
+                0
+            )
+    )
+
+-- Step 4: Calculate cumulative percentage
 VAR CumulativeMargin =
-    CALCULATE(
-        SUMX(
-            FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
-            'YourTable'[MARGIN_$]
-        )
+    SUMX(
+        FILTER(RankedTable, [CustomerPercentile] <= CurrentPercentile),
+        [Margin]
     )
 
 VAR TotalMargin =
-    CALCULATE(SUM('YourTable'[MARGIN_$]), ALLSELECTED('YourTable'))
+    SUMX(RankedTable, [Margin])
 
 RETURN
     DIVIDE(CumulativeMargin, TotalMargin)
