@@ -1,26 +1,34 @@
 DynamicCumulativeMarginPercent = 
 VAR SelectedGroup =
-    SELECTEDVALUE('Segment Table'[GroupBySelector])  -- E.g. "Region"
+    SELECTEDVALUE('Segment Table'[GroupBySelector])  -- e.g., "Region"
 
 VAR CurrentPercentile =
     MAX('PercentileAxis'[Percentage of Merchants (%)])
 
--- Dynamically get the column based on the selected group
+-- Step 1: Build virtual table with dynamic group column
 VAR BaseTable =
     ADDCOLUMNS(
-        ALLSELECTED(MARGIN_DECILIES),
+        SUMMARIZE(
+            MARGIN_DECILIES,
+            MARGIN_DECILIES[CustomerNumber],  -- or whatever uniquely identifies rows
+            SWITCH(
+                SelectedGroup,
+                "Region",   MARGIN_DECILIES[Region],
+                "Category", MARGIN_DECILIES[Category],
+                "Segment",  MARGIN_DECILIES[Segment]
+            )
+        ),
         "GroupValue", 
             SWITCH(
                 SelectedGroup,
                 "Region",   MARGIN_DECILIES[Region],
                 "Category", MARGIN_DECILIES[Category],
-                "Segment",  MARGIN_DECILIES[Segment],
-                BLANK()
+                "Segment",  MARGIN_DECILIES[Segment]
             ),
         "Margin", MARGIN_DECILIES[CustomerPercentileRankIncremental]
     )
 
--- Calculate percentile rank within each group
+-- Step 2: Rank customers within their group
 VAR RankedTable =
     ADDCOLUMNS(
         BaseTable,
@@ -42,26 +50,17 @@ VAR RankedTable =
             )
     )
 
--- Get the current group shown in the legend field of the chart
-VAR CurrentLegendGroup = MAXX(VALUES(BaseTable[GroupValue]), [GroupValue])
-
--- Calculate cumulative and total margin per group
+-- Step 3: Cumulative margin within group up to current percentile
 VAR CumulativeMargin =
     SUMX(
         FILTER(RankedTable,
-            [GroupValue] = CurrentLegendGroup &&
             [CustomerPercentile] <= CurrentPercentile
         ),
         [Margin]
     )
 
 VAR TotalMargin =
-    SUMX(
-        FILTER(RankedTable,
-            [GroupValue] = CurrentLegendGroup
-        ),
-        [Margin]
-    )
+    SUMX(RankedTable, [Margin])
 
 RETURN
     DIVIDE(CumulativeMargin, TotalMargin)
