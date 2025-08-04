@@ -1,0 +1,10 @@
+SelectedGroupValue = 
+VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector], "All")
+RETURN
+    SWITCH(
+        SelectedCategory,
+        "INDUSTRY", SELECTEDVALUE('MARGIN_DECILIES'[INDUSTRY]),
+        "PROD_CAT", SELECTEDVALUE('MARGIN_DECILIES'[PROD_CAT]),
+        "SECTOR_DESC", SELECTEDVALUE('MARGIN_DECILIES'[SECTOR_DESC]),
+        "All", "All"
+    )
