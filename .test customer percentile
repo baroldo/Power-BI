@@ -1,30 +1,48 @@
 CustomerPercentile = 
-VAR ThisGroup =
-    COALESCE(
-        SELECTEDVALUE('MARGIN_DECILIES'[INDUSTRY]),
-        SELECTEDVALUE('MARGIN_DECILIES'[PROD_CAT]),
-        SELECTEDVALUE('MARGIN_DECILIES'[SECTOR_DESC]),
-        "All"
-    )
+VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector], "All")
 
+-- Define the Grouped Table with dynamic GroupValue and CustomerMargin
 VAR GroupedTable =
     ADDCOLUMNS(
         ALLSELECTED('MARGIN_DECILIES'),
-        "TempGroup", ThisGroup,
-        "CustomerMargin", CALCULATE(SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental]))
+        "GroupValue",
+            SWITCH(
+                SelectedCategory,
+                "INDUSTRY", 'MARGIN_DECILIES'[INDUSTRY],
+                "PROD_CAT", 'MARGIN_DECILIES'[PROD_CAT],
+                "SECTOR_DESC", 'MARGIN_DECILIES'[SECTOR_DESC],
+                "All", "All"
+            ),
+        "CustomerMargin", 'MARGIN_DECILIES'[CustomerPercentileRankIncremental]
+    )
+
+-- Extract this row's GroupValue and CustomerMargin
+VAR ThisGroupValue =
+    SWITCH(
+        SelectedCategory,
+        "INDUSTRY", SELECTEDVALUE('MARGIN_DECILIES'[INDUSTRY]),
+        "PROD_CAT", SELECTEDVALUE('MARGIN_DECILIES'[PROD_CAT]),
+        "SECTOR_DESC", SELECTEDVALUE('MARGIN_DECILIES'[SECTOR_DESC]),
+        "All", "All"
+    )
+
+VAR ThisCustomerMargin = 
+    SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental])
+
+-- Rank the customer within their group
+VAR Rank =
+    RANKX(
+        FILTER(GroupedTable, [GroupValue] = ThisGroupValue),
+        [CustomerMargin],
+        ,
+        DESC,
+        Dense
+    )
+
+VAR GroupSize =
+    COUNTROWS(
+        FILTER(GroupedTable, [GroupValue] = ThisGroupValue)
     )
 
 RETURN
-    ROUND(
-        DIVIDE(
-            RANKX(
-                FILTER(GroupedTable, [TempGroup] = ThisGroup),
-                [CustomerMargin],
-                ,
-                DESC,
-                Dense
-            ),
-            COUNTROWS(FILTER(GroupedTable, [TempGroup] = ThisGroup))
-        ) * 100,
-        0
-    )
+    DIVIDE(Rank, GroupSize) * 100
