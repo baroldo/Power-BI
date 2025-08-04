@@ -1,26 +1,26 @@
 DynamicCumulativeMarginPercent = 
 VAR SelectedGroup =
-    SELECTEDVALUE('Segment Table'[GroupBySelector])  -- E.g., "Region"
+    SELECTEDVALUE('Segment Table'[GroupBySelector])  -- E.g. "Region"
 
 VAR CurrentPercentile =
     MAX('PercentileAxis'[Percentage of Merchants (%)])
 
--- Step 1: Create base table with dynamic group values
+-- Dynamically get the column based on the selected group
 VAR BaseTable =
     ADDCOLUMNS(
         ALLSELECTED(MARGIN_DECILIES),
-        "GroupValue",
-        SWITCH(
-            SelectedGroup,
-            "Region",    MARGIN_DECILIES[Region],
-            "Category",  MARGIN_DECILIES[Category],
-            "Segment",   MARGIN_DECILIES[Segment],
-            "Default"
-        ),
+        "GroupValue", 
+            SWITCH(
+                SelectedGroup,
+                "Region",   MARGIN_DECILIES[Region],
+                "Category", MARGIN_DECILIES[Category],
+                "Segment",  MARGIN_DECILIES[Segment],
+                BLANK()
+            ),
         "Margin", MARGIN_DECILIES[CustomerPercentileRankIncremental]
     )
 
--- Step 2: Rank within each group
+-- Calculate percentile rank within each group
 VAR RankedTable =
     ADDCOLUMNS(
         BaseTable,
@@ -42,14 +42,14 @@ VAR RankedTable =
             )
     )
 
--- Step 3: Get current group in visual context (e.g. VIC, NSW)
-VAR VisualGroup = SELECTEDVALUE(MARGIN_DECILIES[Region]) -- this field will update depending on selected legend field
+-- Get the current group shown in the legend field of the chart
+VAR CurrentLegendGroup = MAXX(VALUES(BaseTable[GroupValue]), [GroupValue])
 
--- Step 4: Compute cumulative for each line in visual
+-- Calculate cumulative and total margin per group
 VAR CumulativeMargin =
     SUMX(
         FILTER(RankedTable,
-            [GroupValue] = VisualGroup &&
+            [GroupValue] = CurrentLegendGroup &&
             [CustomerPercentile] <= CurrentPercentile
         ),
         [Margin]
@@ -57,7 +57,9 @@ VAR CumulativeMargin =
 
 VAR TotalMargin =
     SUMX(
-        FILTER(RankedTable, [GroupValue] = VisualGroup),
+        FILTER(RankedTable,
+            [GroupValue] = CurrentLegendGroup
+        ),
         [Margin]
     )
 
