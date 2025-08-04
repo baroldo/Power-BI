@@ -1,0 +1,122 @@
+// ======================
+// BLOCK 1: Grouped Table (Uncomment to run)
+// ======================
+
+/*
+DEFINE
+    MEASURE 'MARGIN_DECILIES'[CustomerMargin] =
+        SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental])
+
+    VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector], "All")
+
+    VAR GroupedTable =
+        ADDCOLUMNS(
+            ALLSELECTED('MARGIN_DECILIES'),
+            "GroupValue",
+                SWITCH(
+                    SelectedCategory,
+                    "INDUSTRY", 'MARGIN_DECILIES'[INDUSTRY],
+                    "PROD_CAT", 'MARGIN_DECILIES'[PROD_CAT],
+                    "SECTOR_DESC", 'MARGIN_DECILIES'[SECTOR_DESC],
+                    "All", "All"
+                ),
+            "CustomerMargin",
+                CALCULATE(SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental]))
+        )
+
+EVALUATE
+GroupedTable
+*/
+
+// ======================
+// BLOCK 2: Filtered Group Table (Uncomment to run)
+// ======================
+
+/*
+DEFINE
+    MEASURE 'MARGIN_DECILIES'[CustomerMargin] =
+        SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental])
+
+    VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector], "All")
+
+    VAR GroupedTable =
+        ADDCOLUMNS(
+            ALLSELECTED('MARGIN_DECILIES'),
+            "GroupValue",
+                SWITCH(
+                    SelectedCategory,
+                    "INDUSTRY", 'MARGIN_DECILIES'[INDUSTRY],
+                    "PROD_CAT", 'MARGIN_DECILIES'[PROD_CAT],
+                    "SECTOR_DESC", 'MARGIN_DECILIES'[SECTOR_DESC],
+                    "All", "All"
+                ),
+            "CustomerMargin",
+                CALCULATE(SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental]))
+        )
+
+    VAR ThisGroupValue =
+        SWITCH(
+            SelectedCategory,
+            "INDUSTRY", SELECTEDVALUE('MARGIN_DECILIES'[INDUSTRY]),
+            "PROD_CAT", SELECTEDVALUE('MARGIN_DECILIES'[PROD_CAT]),
+            "SECTOR_DESC", SELECTEDVALUE('MARGIN_DECILIES'[SECTOR_DESC]),
+            "All", "All"
+        )
+
+    VAR GroupFilteredTable =
+        FILTER(GroupedTable, [GroupValue] = ThisGroupValue)
+
+EVALUATE
+GroupFilteredTable
+*/
+
+// ======================
+// BLOCK 3: Final Table with Ranking and Percentile (Uncomment to run)
+// ======================
+
+/*
+DEFINE
+    MEASURE 'MARGIN_DECILIES'[CustomerMargin] =
+        SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental])
+
+    VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector], "All")
+
+    VAR GroupedTable =
+        ADDCOLUMNS(
+            ALLSELECTED('MARGIN_DECILIES'),
+            "GroupValue",
+                SWITCH(
+                    SelectedCategory,
+                    "INDUSTRY", 'MARGIN_DECILIES'[INDUSTRY],
+                    "PROD_CAT", 'MARGIN_DECILIES'[PROD_CAT],
+                    "SECTOR_DESC", 'MARGIN_DECILIES'[SECTOR_DESC],
+                    "All", "All"
+                ),
+            "CustomerMargin",
+                CALCULATE(SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental]))
+        )
+
+    VAR ThisGroupValue =
+        SWITCH(
+            SelectedCategory,
+            "INDUSTRY", SELECTEDVALUE('MARGIN_DECILIES'[INDUSTRY]),
+            "PROD_CAT", SELECTEDVALUE('MARGIN_DECILIES'[PROD_CAT]),
+            "SECTOR_DESC", SELECTEDVALUE('MARGIN_DECILIES'[SECTOR_DESC]),
+            "All", "All"
+        )
+
+    VAR GroupFilteredTable =
+        FILTER(GroupedTable, [GroupValue] = ThisGroupValue)
+
+EVALUATE
+ADDCOLUMNS(
+    GroupFilteredTable,
+    "Rank", RANKX(GroupFilteredTable, [CustomerMargin], , DESC, Dense),
+    "TotalInGroup", COUNTROWS(GroupFilteredTable),
+    "Percentile", 
+        DIVIDE(
+            RANKX(GroupFilteredTable, [CustomerMargin], , DESC, Dense),
+            COUNTROWS(GroupFilteredTable)
+        ) * 100
+)
+*/
