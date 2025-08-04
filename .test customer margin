@@ -1,0 +1,2 @@
+CustomerMargin = 
+CALCULATE(SUM('MARGIN_DECILIES'[CustomerPercentileRankIncremental]))
