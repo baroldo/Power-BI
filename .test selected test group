@@ -1,0 +1,8 @@
+Selected Group Test = 
+SWITCH(
+    SELECTEDVALUE('LegendSelector'[Value]),
+    "INDUSTRY", MAX('MARGIN_DECILIES'[INDUSTRY]),
+    "PROD_CAT", MAX('MARGIN_DECILIES'[PROD_CAT]),
+    "SECTOR_DESC", MAX('MARGIN_DECILIES'[SECTOR_DESC]),
+    "All"
+)
