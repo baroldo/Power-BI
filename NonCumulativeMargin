@@ -1,0 +1,32 @@
+DynamicNonCumulativeMargin = 
+VAR CurrentPercentile = MAX('PercentileAxis'[Value])
+
+VAR RankedTable =
+    ADDCOLUMNS(
+        ALLSELECTED('YourTable'),
+        "CustomerPercentile",
+        ROUND(
+            DIVIDE(
+                RANKX(
+                    ALLSELECTED('YourTable'),
+                    CALCULATE(SUM('YourTable'[MARGIN_$])),
+                    ,
+                    DESC,
+                    Dense
+                ),
+                COUNTROWS(ALLSELECTED('YourTable'))
+            ) * 100,
+            0
+        )
+    )
+
+VAR NonCumulativeMargin =
+    CALCULATE(
+        SUMX(
+            FILTER(RankedTable, [CustomerPercentile] = CurrentPercentile),
+            'YourTable'[MARGIN_$]
+        )
+    )
+
+RETURN
+    NonCumulativeMargin
