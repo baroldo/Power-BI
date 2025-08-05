@@ -1,0 +1,57 @@
+Pareto Cumulative Margin by Group =
+VAR SelectedGroupField = SELECTEDVALUE('GroupBySelector'[GroupBySelector])
+
+-- Step 1: Handle dynamic group column name
+VAR AddGroupColumn =
+    ADDCOLUMNS(
+        ALLSELECTED(MARGIN_DECILIES),
+        "GroupValue",
+        SWITCH(
+            TRUE(),
+            SelectedGroupField = "INDUSTRY", MARGIN_DECILIES[INDUSTRY],
+            SelectedGroupField = "PROD_CAT", MARGIN_DECILIES[PROD_CAT],
+            SelectedGroupField = "SECTOR_DESC", MARGIN_DECILIES[SECTOR_DESC],
+            "All"
+        )
+    )
+
+-- Step 2: Add Percentile rank and margin to table
+VAR RankedTable =
+    ADDCOLUMNS(
+        AddGroupColumn,
+        "Rank", RANKX(
+            FILTER(AddGroupColumn, [GroupValue] = EARLIER([GroupValue])),
+            MARGIN_DECILIES[CustomerPercentileRankIncremental],
+            ,
+            ASC,
+            DENSE
+        ),
+        "GroupMargin", MARGIN_DECILIES[Margin_$]
+    )
+
+-- Step 3: Get the current percentile from the x-axis
+VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
+
+-- Step 4: Count merchants per group
+VAR MerchantsPerGroup =
+    ADDCOLUMNS(
+        SUMMARIZE(RankedTable, [GroupValue]),
+        "MerchantCount", COUNTROWS(FILTER(RankedTable, [GroupValue] = EARLIER([GroupValue])))
+    )
+
+-- Step 5: Join merchant counts back to table
+VAR RankedWithCount =
+    NATURALLEFTOUTERJOIN(RankedTable, MerchantsPerGroup)
+
+-- Step 6: Filter merchants below percentile threshold
+VAR FilteredTable =
+    FILTER(
+        RankedWithCount,
+        [Rank] <= [MerchantCount] * CurrentPercentile / 100
+    )
+
+-- Step 7: Return the cumulative margin up to the selected percentile
+RETURN
+CALCULATE(
+    SUMX(FilteredTable, [GroupMargin])
+)
