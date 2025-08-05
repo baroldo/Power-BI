@@ -1,55 +1,51 @@
-Pareto Cumulative Margin by Group =
-VAR SelectedGroup = SELECTEDVALUE('GroupBySelector'[GroupBySelector], "All")
-VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
+// ===============================
+// GroupValue Measure
+// ===============================
+GroupValue =
+SWITCH(
+    SELECTEDVALUE('GroupBySelector'[GroupBySelector], "All"),
+    "INDUSTRY", MAX('MARGIN_DECILIES'[INDUSTRY]),
+    "PROD_CAT", MAX('MARGIN_DECILIES'[PROD_CAT]),
+    "SECTOR_DESC", MAX('MARGIN_DECILIES'[SECTOR_DESC]),
+    "All", "All"
+)
 
--- 1. Create base table with group assignment based on parameter
+
+// ===============================
+// Pareto_RankedTable Measure
+// ===============================
+Pareto_RankedTable =
+VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 VAR BaseTable =
     ADDCOLUMNS(
-        ALLSELECTED(MARGIN_DECILIES),
-        "GroupValue",
-        SWITCH(
-            SelectedGroup,
-            "INDUSTRY", MARGIN_DECILIES[INDUSTRY],
-            "PROD_CAT", MARGIN_DECILIES[PROD_CAT],
-            "SECTOR_DESC", MARGIN_DECILIES[SECTOR_DESC],
-            "All"
-        )
+        ALLSELECTED('MARGIN_DECILIES'),
+        "GroupValue", 
+            SWITCH(
+                SELECTEDVALUE('GroupBySelector'[GroupBySelector], "All"),
+                "INDUSTRY", 'MARGIN_DECILIES'[INDUSTRY],
+                "PROD_CAT", 'MARGIN_DECILIES'[PROD_CAT],
+                "SECTOR_DESC", 'MARGIN_DECILIES'[SECTOR_DESC],
+                "All", "All"
+            )
     )
-
--- 2. Add Rank within each group (based on precomputed percentile ranking)
 VAR RankedTable =
     ADDCOLUMNS(
         BaseTable,
-        "Rank", RANKX(
-            FILTER(BaseTable, [GroupValue] = EARLIER([GroupValue])),
-            MARGIN_DECILIES[CustomerPercentileRankIncremental],
-            ,
-            ASC,
-            DENSE
-        ),
-        "GroupMargin", MARGIN_DECILIES[Margin_$]
+        "Rank", RANKX(BaseTable, [CustomerPercentileRankIncremental], , ASC, DENSE)
     )
-
--- 3. Count merchants per group
-VAR MerchantsPerGroup =
-    ADDCOLUMNS(
-        SUMMARIZE(RankedTable, [GroupValue]),
-        "MerchantCount", COUNTROWS(FILTER(RankedTable, [GroupValue] = EARLIER([GroupValue])))
-    )
-
--- 4. Join merchant count back to each row
-VAR RankedWithCount =
-    NATURALLEFTOUTERJOIN(RankedTable, MerchantsPerGroup)
-
--- 5. Filter to merchants within percentile
 VAR FilteredTable =
-    FILTER(
-        RankedWithCount,
-        [Rank] <= [MerchantCount] * CurrentPercentile / 100
-    )
-
--- 6. Sum up the margin
+    FILTER(RankedTable, [Rank] <= CurrentPercentile)
 RETURN
-CALCULATE(
-    SUMX(FilteredTable, [GroupMargin])
-)
+    FilteredTable
+
+
+// ===============================
+// Pareto Cumulative Margin by Group Measure
+// ===============================
+Pareto Cumulative Margin by Group =
+VAR FilteredTable = [Pareto_RankedTable]
+RETURN
+    CALCULATE(
+        SUMX(FilteredTable, 'MARGIN_DECILIES'[Margin_$]),
+        REMOVEFILTERS('PercentileAxis')
+    )
