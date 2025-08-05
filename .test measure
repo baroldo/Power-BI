@@ -31,12 +31,17 @@ VAR BaseTable =
 VAR RankedTable =
     ADDCOLUMNS(
         BaseTable,
-        "Rank", RANKX(BaseTable, [CustomerPercentileRankIncremental], , ASC, DENSE)
+        "Rank", 
+        RANKX(
+            BaseTable,
+            CALCULATE([CustomerPercentileRankIncremental])  // Ensure scalar value
+        )
     )
 VAR FilteredTable =
     FILTER(RankedTable, [Rank] <= CurrentPercentile)
 RETURN
     FilteredTable
+
 
 
 // ===============================
