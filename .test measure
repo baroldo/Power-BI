@@ -1,30 +1,48 @@
-DynamicCumulativeMarginPercent_ByCategory =
+DynamicCumulative_ByCategory =
 VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector Fields], "All")
 
-VAR BaseTable =
-    ADDCOLUMNS(
-        FILTER(
-            ALL('MARGIN_DECILIES'),
-            NOT(ISBLANK('MARGIN_DECILIES'[MARGIN_$]))
-        ),
-        "GroupValue",
-        SWITCH(
-            SelectedCategory,
-            "'MARGIN_DECILIES'[SECTOR_DESC]", 'MARGIN_DECILIES'[SECTOR_DESC],
-            "'MARGIN_DECILIES'[PROD_CAT]", 'MARGIN_DECILIES'[PROD_CAT],
-            "'MARGIN_DECILIES'[INDUSTRY]", 'MARGIN_DECILIES'[INDUSTRY],
-            "All", "All"
-        )
+// Define cumulate column name as text for switch
+VAR CumulateColumnName =
+    SWITCH(
+        TRUE(),
+        -- Replace these with your actual desired columns for cumulation
+        /* e.g. if you have a slicer or param for this */
+        1=1, "MARGIN_$"
     )
 
+// Project the base table with the dynamic column as "CumulateValue"
+VAR BaseTable =
+    SELECTCOLUMNS(
+        FILTER(
+            ALLSELECTED('MARGIN_DECILIES'),
+            NOT(ISBLANK(LOOKUPVALUE('MARGIN_DECILIES'[MARGIN_$],'MARGIN_DECILIES'[Merchant ID],'MARGIN_DECILIES'[Merchant ID])))
+        ),
+        "MerchantID", 'MARGIN_DECILIES'[Merchant ID],
+        "GroupValue",
+            SWITCH(
+                SelectedCategory,
+                "'MARGIN_DECILIES'[SECTOR_DESC]", 'MARGIN_DECILIES'[SECTOR_DESC],
+                "'MARGIN_DECILIES'[PROD_CAT]", 'MARGIN_DECILIES'[PROD_CAT],
+                "'MARGIN_DECILIES'[INDUSTRY]", 'MARGIN_DECILIES'[INDUSTRY],
+                "All", "All"
+            ),
+        "CumulateValue", SWITCH(
+            CumulateColumnName,
+            "MARGIN_$", 'MARGIN_DECILIES'[MARGIN_$]
+            /* add other columns similarly */
+        ),
+        "CustomerPercentileRankIncremental", 'MARGIN_DECILIES'[CustomerPercentileRankIncremental]
+    )
+
+// Continue with your ranking and cumulative sum logic, now using BaseTable and "CumulateValue" column
 VAR GroupValues =
     DISTINCT(SELECTCOLUMNS(BaseTable, "GroupValue", [GroupValue]))
 
 VAR ResultTable =
     ADDCOLUMNS(
         GroupValues,
-        "CumulativeMargin",
+        "CumulativeValue",
             VAR CurrentGroup = [GroupValue]
             VAR FilteredGroup =
                 FILTER(BaseTable, [GroupValue] = CurrentGroup)
@@ -34,28 +52,26 @@ VAR ResultTable =
                     "Rank",
                         RANKX(
                             FilteredGroup,
-                            'MARGIN_DECILIES'[CustomerPercentileRankIncremental],
+                            [CustomerPercentileRankIncremental],
                             ,
-                            ASC,
+                            DESC,
                             DENSE
                         )
                 )
             VAR CountGroup = COUNTROWS(FilteredGroup)
             VAR ThresholdRank = ROUNDUP(CurrentPercentile / 100 * CountGroup, 0)
-            VAR CumMargin =
+            RETURN
                 SUMX(
                     FILTER(RankedGroup, [Rank] <= ThresholdRank),
-                    'MARGIN_DECILIES'[MARGIN_$]
+                    [CumulateValue]
                 )
-            VAR TotalMargin = SUMX(FilteredGroup, 'MARGIN_DECILIES'[MARGIN_$])
-            RETURN
-                DIVIDE(CumMargin, TotalMargin)
     )
 
 RETURN
     MAXX(
-        FILTER(ResultTable,
-            [GroupValue] = 
+        FILTER(
+            ResultTable,
+            [GroupValue] =
                 SWITCH(
                     SelectedCategory,
                     "'MARGIN_DECILIES'[SECTOR_DESC]", SELECTEDVALUE('MARGIN_DECILIES'[SECTOR_DESC]),
@@ -64,5 +80,5 @@ RETURN
                     "All", "All"
                 )
         ),
-        [CumulativeMargin]
+        [CumulativeValue]
     )
