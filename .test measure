@@ -6,8 +6,7 @@ VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector Fields], 
 VAR CumulateColumnName =
     SWITCH(
         TRUE(),
-        -- Replace these with your actual desired columns for cumulation
-        /* e.g. if you have a slicer or param for this */
+        /* You can expand this switch to add more columns */
         1=1, "MARGIN_$"
     )
 
@@ -16,9 +15,9 @@ VAR BaseTable =
     SELECTCOLUMNS(
         FILTER(
             ALLSELECTED('MARGIN_DECILIES'),
-            NOT(ISBLANK(LOOKUPVALUE('MARGIN_DECILIES'[MARGIN_$],'MARGIN_DECILIES'[Merchant ID],'MARGIN_DECILIES'[Merchant ID])))
+            NOT(ISBLANK(LOOKUPVALUE('MARGIN_DECILIES'[MARGIN_$],'MARGIN_DECILIES'[MERCH],'MARGIN_DECILIES'[MERCH])))
         ),
-        "MerchantID", 'MARGIN_DECILIES'[Merchant ID],
+        "MERCH", 'MARGIN_DECILIES'[MERCH],
         "GroupValue",
             SWITCH(
                 SelectedCategory,
@@ -35,7 +34,6 @@ VAR BaseTable =
         "CustomerPercentileRankIncremental", 'MARGIN_DECILIES'[CustomerPercentileRankIncremental]
     )
 
-// Continue with your ranking and cumulative sum logic, now using BaseTable and "CumulateValue" column
 VAR GroupValues =
     DISTINCT(SELECTCOLUMNS(BaseTable, "GroupValue", [GroupValue]))
 
