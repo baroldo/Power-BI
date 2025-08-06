@@ -1,12 +1,12 @@
-DynamicCumulative_ByCustomerRank =
-VAR CurrentRank = MAX('CustomerAxis'[Customer Rank])
+DynamicCumulative_ByCategory_CustomerAxis =
+VAR CurrentCustomerCount = MAX('CustomerAxis'[Customer Count])
 VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector Fields], "All")
 
 VAR BaseTable =
     ADDCOLUMNS(
         FILTER(
             ALLSELECTED('MARGIN_DECILIES'),
-            NOT ISBLANK('MARGIN_DECILIES'[MARGIN_$])
+            NOT(ISBLANK('MARGIN_DECILIES'[MARGIN_$]))
         ),
         "GroupValue",
         SWITCH(
@@ -31,7 +31,7 @@ VAR ResultTable =
             VAR RankedGroup =
                 ADDCOLUMNS(
                     FilteredGroup,
-                    "CustomerRank",
+                    "Rank",
                         RANKX(
                             FilteredGroup,
                             'MARGIN_DECILIES'[CustomerPercentileRankIncremental],
@@ -40,10 +40,9 @@ VAR ResultTable =
                             DENSE
                         )
                 )
-
             RETURN
                 SUMX(
-                    FILTER(RankedGroup, [CustomerRank] <= CurrentRank),
+                    FILTER(RankedGroup, [Rank] <= CurrentCustomerCount),
                     'MARGIN_DECILIES'[MARGIN_$]
                 )
     )
