@@ -1,0 +1,83 @@
+-- 1. BaseTable with GroupValue column (based on GroupBySelector)
+EVALUATE
+VAR BaseTable =
+    ADDCOLUMNS(
+        ALLSELECTED('MARGIN_DECILIES'),
+        "GroupValue", 
+            SWITCH(
+                SELECTEDVALUE('GroupBySelector'[GroupBySelector], "All"),
+                "INDUSTRY", 'MARGIN_DECILIES'[INDUSTRY],
+                "PROD_CAT", 'MARGIN_DECILIES'[PROD_CAT],
+                "SECTOR_DESC", 'MARGIN_DECILIES'[SECTOR_DESC],
+                "All", "All"
+            )
+    )
+RETURN
+    BaseTable
+
+-- Uncomment to debug next step
+/*
+-- 2. RankedTable with CustomerPercentileRankIncremental and GroupValue
+EVALUATE
+VAR BaseTable =
+    ADDCOLUMNS(
+        ALLSELECTED('MARGIN_DECILIES'),
+        "GroupValue", 
+            SWITCH(
+                SELECTEDVALUE('GroupBySelector'[GroupBySelector], "All"),
+                "INDUSTRY", 'MARGIN_DECILIES'[INDUSTRY],
+                "PROD_CAT", 'MARGIN_DECILIES'[PROD_CAT],
+                "SECTOR_DESC", 'MARGIN_DECILIES'[SECTOR_DESC],
+                "All", "All"
+            )
+    )
+VAR RankedTable =
+    ADDCOLUMNS(
+        BaseTable,
+        "Rank", 
+        RANKX(
+            BaseTable,
+            [CustomerPercentileRankIncremental],
+            ,
+            ASC,
+            DENSE
+        )
+    )
+RETURN
+    RankedTable
+*/
+
+-- Uncomment to debug filtered table
+/*
+-- 3. FilteredTable showing only merchants up to current percentile
+EVALUATE
+VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
+VAR BaseTable =
+    ADDCOLUMNS(
+        ALLSELECTED('MARGIN_DECILIES'),
+        "GroupValue", 
+            SWITCH(
+                SELECTEDVALUE('GroupBySelector'[GroupBySelector], "All"),
+                "INDUSTRY", 'MARGIN_DECILIES'[INDUSTRY],
+                "PROD_CAT", 'MARGIN_DECILIES'[PROD_CAT],
+                "SECTOR_DESC", 'MARGIN_DECILIES'[SECTOR_DESC],
+                "All", "All"
+            )
+    )
+VAR RankedTable =
+    ADDCOLUMNS(
+        BaseTable,
+        "Rank", 
+        RANKX(
+            BaseTable,
+            [CustomerPercentileRankIncremental],
+            ,
+            ASC,
+            DENSE
+        )
+    )
+VAR FilteredTable =
+    FILTER(RankedTable, [Rank] <= CurrentPercentile)
+RETURN
+    FilteredTable
+*/
