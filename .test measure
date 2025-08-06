@@ -1,56 +1,68 @@
-// ===============================
-// GroupValue Measure
-// ===============================
-GroupValue =
-SWITCH(
-    SELECTEDVALUE('GroupBySelector'[GroupBySelector], "All"),
-    "INDUSTRY", MAX('MARGIN_DECILIES'[INDUSTRY]),
-    "PROD_CAT", MAX('MARGIN_DECILIES'[PROD_CAT]),
-    "SECTOR_DESC", MAX('MARGIN_DECILIES'[SECTOR_DESC]),
-    "All", "All"
-)
-
-
-// ===============================
-// Pareto_RankedTable Measure
-// ===============================
-Pareto_RankedTable =
+DynamicCumulativeMarginPercent_ByCategory =
 VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
+VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector Fields], "All")
+
 VAR BaseTable =
     ADDCOLUMNS(
-        ALLSELECTED('MARGIN_DECILIES'),
-        "GroupValue", 
-            SWITCH(
-                SELECTEDVALUE('GroupBySelector'[GroupBySelector], "All"),
-                "INDUSTRY", 'MARGIN_DECILIES'[INDUSTRY],
-                "PROD_CAT", 'MARGIN_DECILIES'[PROD_CAT],
-                "SECTOR_DESC", 'MARGIN_DECILIES'[SECTOR_DESC],
-                "All", "All"
-            )
-    )
-VAR RankedTable =
-    ADDCOLUMNS(
-        BaseTable,
-        "Rank", 
-        RANKX(
-            BaseTable,
-            CALCULATE([CustomerPercentileRankIncremental])  // Ensure scalar value
+        FILTER(
+            ALL('MARGIN_DECILIES'),
+            NOT(ISBLANK('MARGIN_DECILIES'[MARGIN_$]))
+        ),
+        "GroupValue",
+        SWITCH(
+            SelectedCategory,
+            "'MARGIN_DECILIES'[SECTOR_DESC]", 'MARGIN_DECILIES'[SECTOR_DESC],
+            "'MARGIN_DECILIES'[PROD_CAT]", 'MARGIN_DECILIES'[PROD_CAT],
+            "'MARGIN_DECILIES'[INDUSTRY]", 'MARGIN_DECILIES'[INDUSTRY],
+            "All", "All"
         )
     )
-VAR FilteredTable =
-    FILTER(RankedTable, [Rank] <= CurrentPercentile)
+
+VAR GroupValues =
+    DISTINCT(SELECTCOLUMNS(BaseTable, "GroupValue", [GroupValue]))
+
+VAR ResultTable =
+    ADDCOLUMNS(
+        GroupValues,
+        "CumulativeMargin",
+            VAR CurrentGroup = [GroupValue]
+            VAR FilteredGroup =
+                FILTER(BaseTable, [GroupValue] = CurrentGroup)
+            VAR RankedGroup =
+                ADDCOLUMNS(
+                    FilteredGroup,
+                    "Rank",
+                        RANKX(
+                            FilteredGroup,
+                            'MARGIN_DECILIES'[CustomerPercentileRankIncremental],
+                            ,
+                            ASC,
+                            DENSE
+                        )
+                )
+            VAR CountGroup = COUNTROWS(FilteredGroup)
+            VAR ThresholdRank = ROUNDUP(CurrentPercentile / 100 * CountGroup, 0)
+            VAR CumMargin =
+                SUMX(
+                    FILTER(RankedGroup, [Rank] <= ThresholdRank),
+                    'MARGIN_DECILIES'[MARGIN_$]
+                )
+            VAR TotalMargin = SUMX(FilteredGroup, 'MARGIN_DECILIES'[MARGIN_$])
+            RETURN
+                DIVIDE(CumMargin, TotalMargin)
+    )
+
 RETURN
-    FilteredTable
-
-
-
-// ===============================
-// Pareto Cumulative Margin by Group Measure
-// ===============================
-Pareto Cumulative Margin by Group =
-VAR FilteredTable = [Pareto_RankedTable]
-RETURN
-    CALCULATE(
-        SUMX(FilteredTable, 'MARGIN_DECILIES'[Margin_$]),
-        REMOVEFILTERS('PercentileAxis')
+    MAXX(
+        FILTER(ResultTable,
+            [GroupValue] = 
+                SWITCH(
+                    SelectedCategory,
+                    "'MARGIN_DECILIES'[SECTOR_DESC]", SELECTEDVALUE('MARGIN_DECILIES'[SECTOR_DESC]),
+                    "'MARGIN_DECILIES'[PROD_CAT]", SELECTEDVALUE('MARGIN_DECILIES'[PROD_CAT]),
+                    "'MARGIN_DECILIES'[INDUSTRY]", SELECTEDVALUE('MARGIN_DECILIES'[INDUSTRY]),
+                    "All", "All"
+                )
+        ),
+        [CumulativeMargin]
     )
