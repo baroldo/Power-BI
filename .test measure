@@ -1,4 +1,4 @@
-DynamicNonCumulative_ByCustomerRank =
+DynamicCumulative_ByCustomerRank =
 VAR CurrentRank = MAX('CustomerAxis'[Customer Rank])
 VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector Fields], "All")
 
@@ -24,7 +24,7 @@ VAR GroupValues =
 VAR ResultTable =
     ADDCOLUMNS(
         GroupValues,
-        "NonCumulativeValue",
+        "CumulativeValue",
             VAR CurrentGroup = [GroupValue]
             VAR FilteredGroup =
                 FILTER(BaseTable, [GroupValue] = CurrentGroup)
@@ -43,7 +43,7 @@ VAR ResultTable =
 
             RETURN
                 SUMX(
-                    FILTER(RankedGroup, [CustomerRank] = CurrentRank),
+                    FILTER(RankedGroup, [CustomerRank] <= CurrentRank),
                     'MARGIN_DECILIES'[MARGIN_$]
                 )
     )
@@ -61,5 +61,5 @@ RETURN
                     "All", "All"
                 )
         ),
-        [NonCumulativeValue]
+        [CumulativeValue]
     )
