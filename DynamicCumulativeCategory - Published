@@ -2,15 +2,11 @@ DynamicCumulative_ByCategory =
 VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector Fields], "All")
 
-// Define cumulate field here — change this to cumulate a different column
-VAR CumulateField = 'MARGIN_DECILIES'[MARGIN_$] 
-// Example: use 'MARGIN_DECILIES'[Turnover] or 'MARGIN_DECILIES'[Transactions] if you want
-
 VAR BaseTable =
     ADDCOLUMNS(
         FILTER(
             ALLSELECTED('MARGIN_DECILIES'),
-            NOT(ISBLANK(CumulateField))
+            NOT(ISBLANK('MARGIN_DECILIES'[MARGIN_$]))
         ),
         "GroupValue",
         SWITCH(
@@ -49,7 +45,7 @@ VAR ResultTable =
             RETURN
                 SUMX(
                     FILTER(RankedGroup, [Rank] <= ThresholdRank),
-                    CumulateField
+                    'MARGIN_DECILIES'[MARGIN_$]
                 )
     )
 
