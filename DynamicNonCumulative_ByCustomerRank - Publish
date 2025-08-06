@@ -1,0 +1,65 @@
+DynamicNonCumulative_ByCustomerRank =
+VAR CurrentRank = MAX('CustomerAxis'[Customer Rank])
+VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector Fields], "All")
+
+VAR BaseTable =
+    ADDCOLUMNS(
+        FILTER(
+            ALLSELECTED('MARGIN_DECILIES'),
+            NOT ISBLANK('MARGIN_DECILIES'[MARGIN_$])
+        ),
+        "GroupValue",
+        SWITCH(
+            SelectedCategory,
+            "'MARGIN_DECILIES'[SECTOR_DESC]", 'MARGIN_DECILIES'[SECTOR_DESC],
+            "'MARGIN_DECILIES'[PROD_CAT]", 'MARGIN_DECILIES'[PROD_CAT],
+            "'MARGIN_DECILIES'[INDUSTRY]", 'MARGIN_DECILIES'[INDUSTRY],
+            "All", "All"
+        )
+    )
+
+VAR GroupValues =
+    DISTINCT(SELECTCOLUMNS(BaseTable, "GroupValue", [GroupValue]))
+
+VAR ResultTable =
+    ADDCOLUMNS(
+        GroupValues,
+        "NonCumulativeValue",
+            VAR CurrentGroup = [GroupValue]
+            VAR FilteredGroup =
+                FILTER(BaseTable, [GroupValue] = CurrentGroup)
+            VAR RankedGroup =
+                ADDCOLUMNS(
+                    FilteredGroup,
+                    "CustomerRank",
+                        RANKX(
+                            FilteredGroup,
+                            'MARGIN_DECILIES'[CustomerPercentileRankIncremental],
+                            ,
+                            DESC,
+                            DENSE
+                        )
+                )
+
+            RETURN
+                SUMX(
+                    FILTER(RankedGroup, [CustomerRank] = CurrentRank),
+                    'MARGIN_DECILIES'[MARGIN_$]
+                )
+    )
+
+RETURN
+    MAXX(
+        FILTER(
+            ResultTable,
+            [GroupValue] =
+                SWITCH(
+                    SelectedCategory,
+                    "'MARGIN_DECILIES'[SECTOR_DESC]", SELECTEDVALUE('MARGIN_DECILIES'[SECTOR_DESC]),
+                    "'MARGIN_DECILIES'[PROD_CAT]", SELECTEDVALUE('MARGIN_DECILIES'[PROD_CAT]),
+                    "'MARGIN_DECILIES'[INDUSTRY]", SELECTEDVALUE('MARGIN_DECILIES'[INDUSTRY]),
+                    "All", "All"
+                )
+        ),
+        [NonCumulativeValue]
+    )
