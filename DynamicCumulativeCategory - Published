@@ -1,12 +1,16 @@
-DynamicCumulativeMarginPercent_ByCategory = 
+DynamicCumulative_ByCategory =
 VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector Fields], "All")
+
+// Define cumulate field here — change this to cumulate a different column
+VAR CumulateField = 'MARGIN_DECILIES'[MARGIN_$] 
+// Example: use 'MARGIN_DECILIES'[Turnover] or 'MARGIN_DECILIES'[Transactions] if you want
 
 VAR BaseTable =
     ADDCOLUMNS(
         FILTER(
             ALLSELECTED('MARGIN_DECILIES'),
-            NOT(ISBLANK('MARGIN_DECILIES'[MARGIN_$]))
+            NOT(ISBLANK(CumulateField))
         ),
         "GroupValue",
         SWITCH(
@@ -24,7 +28,7 @@ VAR GroupValues =
 VAR ResultTable =
     ADDCOLUMNS(
         GroupValues,
-        "CumulativeMargin",
+        "CumulativeValue",
             VAR CurrentGroup = [GroupValue]
             VAR FilteredGroup =
                 FILTER(BaseTable, [GroupValue] = CurrentGroup)
@@ -42,20 +46,18 @@ VAR ResultTable =
                 )
             VAR CountGroup = COUNTROWS(FilteredGroup)
             VAR ThresholdRank = ROUNDUP(CurrentPercentile / 100 * CountGroup, 0)
-            VAR CumMargin =
+            RETURN
                 SUMX(
                     FILTER(RankedGroup, [Rank] <= ThresholdRank),
-                    'MARGIN_DECILIES'[MARGIN_$]
+                    CumulateField
                 )
-            VAR TotalMargin = SUMX(FilteredGroup, 'MARGIN_DECILIES'[MARGIN_$])
-            RETURN
-                DIVIDE(CumMargin, TotalMargin)
     )
 
 RETURN
     MAXX(
-        FILTER(ResultTable,
-            [GroupValue] = 
+        FILTER(
+            ResultTable,
+            [GroupValue] =
                 SWITCH(
                     SelectedCategory,
                     "'MARGIN_DECILIES'[SECTOR_DESC]", SELECTEDVALUE('MARGIN_DECILIES'[SECTOR_DESC]),
@@ -64,5 +66,5 @@ RETURN
                     "All", "All"
                 )
         ),
-        [CumulativeMargin]
+        [CumulativeValue]
     )
