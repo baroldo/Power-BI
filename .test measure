@@ -1,5 +1,8 @@
-DynamicCumulative_ByCategory_CustomerAxis =
-VAR CurrentCustomerCount = MAX('CustomerAxis'[Customer Count])
+---------------------------------------------
+-- 1. Dynamic Cumulative Margin by Category
+---------------------------------------------
+DynamicCumulative_ByCategory =
+VAR CurrentPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 VAR SelectedCategory = SELECTEDVALUE('GroupBySelector'[GroupBySelector Fields], "All")
 
 VAR BaseTable =
@@ -26,8 +29,9 @@ VAR ResultTable =
         GroupValues,
         "CumulativeValue",
             VAR CurrentGroup = [GroupValue]
-            VAR FilteredGroup =
-                FILTER(BaseTable, [GroupValue] = CurrentGroup)
+            VAR FilteredGroup = FILTER(BaseTable, [GroupValue] = CurrentGroup)
+            VAR CountGroup = COUNTROWS(FilteredGroup)
+            VAR ThresholdRank = ROUNDUP(CurrentPercentile / 100 * CountGroup, 0)
             VAR RankedGroup =
                 ADDCOLUMNS(
                     FilteredGroup,
@@ -42,7 +46,7 @@ VAR ResultTable =
                 )
             RETURN
                 SUMX(
-                    FILTER(RankedGroup, [Rank] <= CurrentCustomerCount),
+                    FILTER(RankedGroup, [Rank] <= ThresholdRank),
                     'MARGIN_DECILIES'[MARGIN_$]
                 )
     )
@@ -62,3 +66,30 @@ RETURN
         ),
         [CumulativeValue]
     )
+
+
+---------------------------------------------
+-- 2. Tooltip: Customer Count at Percentile
+---------------------------------------------
+CustomerCountAtPercentile =
+VAR SelectedPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
+VAR TotalCustomers =
+    COUNTROWS(
+        ALLSELECTED('MARGIN_DECILIES')
+    )
+RETURN
+    ROUNDUP( (SelectedPercentile / 100) * TotalCustomers, 0 )
+
+
+---------------------------------------------
+-- 3. Combined Tooltip (Margin + Customers)
+---------------------------------------------
+CustomerPercentileTooltip =
+VAR SelectedPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
+VAR TotalCustomers = COUNTROWS(ALLSELECTED('MARGIN_DECILIES'))
+VAR CustomersAtPercentile = ROUNDUP( (SelectedPercentile / 100) * TotalCustomers, 0 )
+VAR CumulativeMargin = [DynamicCumulative_ByCategory]
+RETURN
+    SelectedPercentile & "% (" &
+    FORMAT(CustomersAtPercentile, "#,0") & " customers): " &
+    FORMAT(CumulativeMargin, "$#,0,,.0M")
