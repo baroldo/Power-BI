@@ -113,6 +113,23 @@ CustomerPercentileTooltip =
 VAR SelectedPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
 VAR CustomersAtPercentile = [CustomerCountAtPercentile_ByCategory]
 VAR CumulativeMargin = [DynamicCumulative_ByCategory]
+
+
+
+
+
+---------------------------------------------
+-- 4. Total Customers Card for Tooltip Page
+---------------------------------------------
+TotalCustomersAtPercentile = 
+VAR SelectedPercentile = MAX('PercentileAxis'[Percentage of Merchants (%)])
+VAR AllCustomers =
+    ALLSELECTED('MARGIN_DECILIES')  -- respects other slicers on the page
+VAR TotalCustomerCount = COUNTROWS(AllCustomers)
+VAR ThresholdCount = ROUNDUP(SelectedPercentile / 100 * TotalCustomerCount, 0)
+RETURN
+    ThresholdCount
+
 RETURN
     SelectedPercentile & "% (" &
     FORMAT(CustomersAtPercentile, "#,0") & " customers): " &
