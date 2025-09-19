@@ -1,0 +1,78 @@
+DynamicNonCumulative_ByCategory_CustRev = 
+VAR CurrentPercentile =
+    MAX('PercentileAxis'[Percentage of Merchants (%)])
+
+VAR SelectedCategory =
+    SELECTEDVALUE('GroupBySelector'[GroupBySelector Fields], "All")
+
+-- Step 1: Summarize by customer only
+VAR CustomerRevenueTable =
+    SUMMARIZE(
+        'MARGIN_DECILIES',
+        'MARGIN_DECILIES'[CUST_NBR],
+        "CUST_REVENUE", MAX('MARGIN_DECILIES'[CUST_REVENUE])
+    )
+
+-- Step 2: Add GroupValue dynamically
+VAR BaseTable =
+    ADDCOLUMNS(
+        CustomerRevenueTable,
+        "GroupValue",
+            SWITCH(
+                SelectedCategory,
+                "SECTOR_DESC", SELECTEDVALUE('MARGIN_DECILIES'[SECTOR_DESC]),
+                "PROD_CAT",    SELECTEDVALUE('MARGIN_DECILIES'[PROD_CAT]),
+                "INDUSTRY",    SELECTEDVALUE('MARGIN_DECILIES'[INDUSTRY]),
+                "All", "All"
+            )
+    )
+
+-- Step 3: Build group list
+VAR GroupValues =
+    DISTINCT(SELECTCOLUMNS(BaseTable, "GroupValue", [GroupValue]))
+
+-- Step 4: Rank customers within each group
+VAR ResultTable =
+    ADDCOLUMNS(
+        GroupValues,
+        "NonCumulativeValue",
+            VAR CurrentGroup = [GroupValue]
+            VAR FilteredGroup = FILTER(BaseTable, [GroupValue] = CurrentGroup)
+            VAR RankedGroup =
+                ADDCOLUMNS(
+                    FilteredGroup,
+                    "Rank",
+                        RANKX(
+                            FilteredGroup,
+                            [CUST_REVENUE] + (RANKX(ALL(MARGIN_DECILIES), MARGIN_DECILIES[CUST_NBR], , ASC, DENSE) * 1e-12),
+                            ,
+                            DESC,
+                            DENSE
+                        )
+                )
+            VAR CountGroup = COUNTROWS(FilteredGroup)
+            VAR ThresholdRank = ROUNDUP(CurrentPercentile / 100 * CountGroup, 0)
+            -- Pick only the customer at the threshold rank
+            RETURN
+                MAXX(
+                    FILTER(RankedGroup, [Rank] = ThresholdRank),
+                    [CUST_REVENUE]
+                )
+    )
+
+-- Step 5: Return the non-cumulative value for the current selection
+RETURN
+    MAXX(
+        FILTER(
+            ResultTable,
+            [GroupValue] =
+                SWITCH(
+                    SelectedCategory,
+                    "SECTOR_DESC", SELECTEDVALUE('MARGIN_DECILIES'[SECTOR_DESC]),
+                    "PROD_CAT",    SELECTEDVALUE('MARGIN_DECILIES'[PROD_CAT]),
+                    "INDUSTRY",    SELECTEDVALUE('MARGIN_DECILIES'[INDUSTRY]),
+                    "All", "All"
+                )
+        ),
+        [NonCumulativeValue]
+    )
